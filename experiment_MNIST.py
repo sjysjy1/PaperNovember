@@ -8,6 +8,8 @@ from zoutendijk_attack import zoutendijk_attack_Linfty_mode1,zoutendijk_attack_L
 import time
 import matplotlib.pyplot as plt
 import torchattacks
+random_seed = 1
+torch.manual_seed(random_seed)
 def imshow(img, title):
     npimg = img.numpy()
     fig = plt.figure(figsize = (5, 15))
@@ -17,10 +19,7 @@ def imshow(img, title):
 device=('cuda:0' if torch.cuda.is_available() else 'cpu')
 print(device)
 
-test_dataset=datasets.MNIST(root='../data',
-                          train=False,
-                          download=True,
-                          transform=transforms.ToTensor())
+test_dataset=datasets.MNIST(root='./data',train=False,download=True,transform=transforms.ToTensor())
 
 model=model_MNIST()
 model.to(device)
@@ -63,26 +62,25 @@ for item in list_para:
     list_loss=[]
     start_time = time.time()
     print(item)
+    if item['model'] == 'Standard':
+        model.load_state_dict(torch.load('mnist_regular.pth'), False)
+    elif item['model'] == 'ddn':
+        model.load_state_dict(torch.load('mnist_robust_ddn.pth'), False)  # ALM paper github : l2 adversarially trained
+    elif item['model'] == 'trades':
+        model.load_state_dict(torch.load('mnist_robust_trades.pt'),False)  # ALM paper github: l_\infty adversarially trained
+    model.eval()  # turn off the dropout
+    test_data = torch.unsqueeze(test_dataset.data, dim=1)
+    test_labels = test_dataset.test_labels.to(device)
+    test_data_normalized = test_data / 255.0
+    test_data_normalized = test_data_normalized.to(device)
+    outputs = model(test_data_normalized)
+    _, labels_predict = torch.max(outputs, 1)
+    correct = torch.eq(labels_predict, test_labels)
+    correct_sum = correct.sum()
+    print(correct.sum())
+    print('clean accuracy is:', correct.sum() / 10000.0)
     for i in range(10000):
         print('***************{}th data***********'.format(i))
-        if item['model']=='Standard':
-            model.load_state_dict(torch.load('mnist_regular.pth'), False)
-        elif item['model']=='ddn':
-            model.load_state_dict(torch.load('mnist_robust_ddn.pth'), False)  # ALM paper github : l2 adversarially trained
-        elif  item['model']=='trades':
-            model.load_state_dict(torch.load('mnist_robust_trades.pt'), False)  # ALM paper github: l_\infty adversarially trained
-        model.eval()  # turn off the dropout
-        test_data = torch.unsqueeze(test_dataset.data, dim=1)
-        test_labels = test_dataset.test_labels.to(device)
-        test_data_normalized = test_data / 255.0
-        test_data_normalized = test_data_normalized.to(device)
-        outputs = model(test_data_normalized)
-        _, labels_predict = torch.max(outputs, 1)
-        correct = torch.eq(labels_predict, test_labels)
-        correct_sum = correct.sum()
-        print(correct.sum())
-        print('clean accuracy is:', correct.sum() / 10000.0)
-
         if correct[i]:
             image=torch.unsqueeze(test_data_normalized[i],dim=0).clone().detach()
             label=torch.unsqueeze(test_labels[i],dim=0)
@@ -103,13 +101,12 @@ for item in list_para:
             elif item['attack']=='MIFGSM_linf':
                 atk = torchattacks.MIFGSM(model, eps=item['epsilon'], alpha=item['stepsize'],steps=item['iter_max'])  # torchattack
                 adv_image, perturbation, num, success, loss_eva, predict_label = atk(image, label)
-            if 'l2' in item['attack']:
-                print('distortion norm2((images-images_ori),p=2):', torch.norm(adv_image - image,p=2))
-            elif 'linf' in item['attack']:
-                print('distortion max(|images-images_ori|):', torch.max(torch.abs(adv_image - image)))
             if success:
                list_success.append(i)
-               list_diff.append(torch.max(torch.abs(adv_image - image)))
+               if 'linf' in item['attack']:
+                   list_diff.append(torch.max(torch.abs(adv_image - image)))
+               elif 'l2' in item['attack']:
+                   list_diff.append(torch.norm(adv_image - image, p=2))
                list_num.append(iter)
                list_loss.append(loss_eva)
                #imshow(torchvision.utils.make_grid(adv_image.cpu().data, normalize=True), 'Predict:{}'.format(predict_label.item()))
