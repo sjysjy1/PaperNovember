@@ -78,7 +78,7 @@ for item in list_para:
    clean_accuracy = correct.sum() / 10000.0
    print('model clean accuracy:', clean_accuracy)
 
-   for i in range(1):
+   for i in range(10000):
        print(i)
        if correct[i]:
            image=torch.unsqueeze(test_data_normalized[i],dim=0)
