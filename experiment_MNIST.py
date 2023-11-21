@@ -1,13 +1,13 @@
 import torch
 import torch.nn as nn
 import numpy as np
-import torchvision
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from model_MNIST import model_MNIST
 from zoutendijk_attack import zoutendijk_attack_Linfty_mode1,zoutendijk_attack_Linfty_mode2,zoutendijk_attack_L2
 import time
 import matplotlib.pyplot as plt
+import torchattacks
 def imshow(img, title):
     npimg = img.numpy()
     fig = plt.figure(figsize = (5, 15))
@@ -33,17 +33,27 @@ list_para=[
 {'model':'Standard','attack':'Z_linf_mode2','epsilon':0.2,'delta':0.015,'iter_max':100,'div':2.0},
 {'model':'Standard','attack':'Z_linf_mode2','epsilon':0.3,'delta':0.015,'iter_max':100,'div':2.0},
 #{'model':'Standard','attack':'Z_l2','epsilon':2.0,'stepsize':0.02,'delta':0.25,'iter_max':100},
-
-
 {'model':'ddn','attack':'Z_linf_mode1','epsilon':0.3,'stepsize':0.01,'delta':0.015,'iter_max':200},
 {'model':'ddn','attack':'Z_linf_mode1','epsilon':0.4,'stepsize':0.01,'delta':0.015,'iter_max':200},
 {'model':'ddn','attack':'Z_linf_mode2','epsilon':0.3,'delta':0.015,'iter_max':500,'div':1.2},
 #{'attack':'Z_l2','epsilon':0.5,'stepsize':0.01,'delta':0.015,'iter_max':40},
-
 {'model':'trades','attack':'Z_linf_mode1','epsilon':0.4,'stepsize':0.01,'delta':0.015,'iter_max':200},
 {'model':'trades','attack':'Z_linf_mode2','epsilon':0.4,'delta':0.015,'iter_max':300,'div':1.2},
 #{'attack':'Z_l2','epsilon':0.5,'stepsize':0.01,'delta':0.015,'iter_max':40},
 
+{'model':'Standard','attack':'PGD_linf','epsilon':0.2,'stepsize':0.01,'iter_max':50},
+{'model':'Standard','attack':'PGD_linf','epsilon':0.3,'stepsize':0.01,'iter_max':50},
+{'model':'Standard','attack':'PGD_linf','epsilon':0.4,'stepsize':0.01,'iter_max':50},
+{'model':'ddn','attack':'PGD_linf','epsilon':0.3,'stepsize':0.01,'iter_max':200},
+{'model':'ddn','attack':'PGD_linf','epsilon':0.4,'stepsize':0.01,'iter_max':200},
+{'model':'trades','attack':'PGD_linf','epsilon':0.4,'stepsize':0.01,'iter_max':200},
+
+{'model':'Standard','attack':'MIFGSM_linf','epsilon':0.2,'stepsize':0.01,'iter_max':100},
+{'model':'Standard','attack':'MIFGSM_linf','epsilon':0.3,'stepsize':0.01,'iter_max':100},
+{'model':'Standard','attack':'MIFGSM_linf','epsilon':0.4,'stepsize':0.01,'iter_max':100},
+{'model':'ddn','attack':'MIFGSM_linf','epsilon':0.3,'stepsize':0.01,'iter_max':200},
+{'model':'ddn','attack':'MIFGSM_linf','epsilon':0.4,'stepsize':0.01,'iter_max':200},
+{'model':'trades','attack':'MIFGSM_linf','epsilon':0.4,'stepsize':0.01,'iter_max':200}
 ]
 
 for item in list_para:
@@ -53,7 +63,7 @@ for item in list_para:
     list_loss=[]
     start_time = time.time()
     print(item)
-    for i in range(1):
+    for i in range(10000):
         print('***************{}th data***********'.format(i))
         if item['model']=='Standard':
             model.load_state_dict(torch.load('mnist_regular.pth'), False)
@@ -87,6 +97,12 @@ for item in list_para:
                success, predict_label,adv_image,iter,loss_eva = zoutendijk_attack_Linfty_mode2(model, image, label,epsilon=item['epsilon'],iter_max=item['iter_max'],delta=item['delta'],div=item['div'])
             elif item['attack'] == 'Z_l2':
                success, predict_label,adv_image,iter,loss_eva = zoutendijk_attack_L2(model, image, label,epsilon=item['epsilon'],iter_max=item['iter_max'],delta=item['delta'],stepsize_default=item['stepsize'])
+            elif item['attack']=='PGD_linf':
+                atk = torchattacks.PGD(model, eps=item['epsilon'], alpha=item['stepsize'],steps=item['iter_max'])  # torchattack
+                adv_image, perturbation, num, success, loss_eva, predict_label = atk(image, label)
+            elif item['attack']=='MIFGSM_linf':
+                atk = torchattacks.MIFGSM(model, eps=item['epsilon'], alpha=item['stepsize'],steps=item['iter_max'])  # torchattack
+                adv_image, perturbation, num, success, loss_eva, predict_label = atk(image, label)
             if 'l2' in item['attack']:
                 print('distortion norm2((images-images_ori),p=2):', torch.norm(adv_image - image,p=2))
             elif 'linf' in item['attack']:
@@ -104,4 +120,8 @@ for item in list_para:
     attack_success_rate=len(list_success)/correct_sum
     print('attack success rate:',attack_success_rate)
     dict_save={'para':item,'time_used':time_used,'list1_success':list_success,'attack_success_rate':attack_success_rate,'list_diff':list_diff,'list_num':list_num,'list_loss':list_loss}
-    torch.save(dict_save,'./result/mnist/{}_attack_{}_epsilon{}_delta{}.pt'.format(item['model'],item['attack'],item['epsilon'],item['delta']))
+    if 'Z_' in item['attack']:
+        torch.save(dict_save,'./result/mnist/{}_attack_{}_epsilon{}_delta{}.pt'.format(item['model'],item['attack'],item['epsilon'],item['delta']))
+    elif 'PGD' in item['attack'] or 'MIFGSM' in item['attack']:
+       torch.save(dict_save,'./result/mnist/{}_attack_{}_epsilon{}.pt'.format(item['model'], item['attack'], item['epsilon']))
+

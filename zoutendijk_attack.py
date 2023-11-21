@@ -68,7 +68,7 @@ def zoutendijk_attack_Linfty_mode1(model:nn.Module,
         if predictions_attacked != labels:
           success=True
           break
-    return success, predictions_attacked,images,iter,loss_eva
+    return success, predictions_attacked,images,iter,-loss_eva
 
 
 
@@ -130,7 +130,7 @@ def zoutendijk_attack_Linfty_mode2(model:nn.Module,
         if predictions_attacked != labels:
           success=True
           break
-    return success, predictions_attacked,images,iter,loss_eva
+    return success, predictions_attacked,images,iter,-loss_eva
 
 
 
@@ -263,7 +263,7 @@ def zoutendijk_attack_L2(model:nn.Module,
         if predictions_attacked != labels:
           success=True
           break
-    return success, predictions_attacked,images,iter,loss_eva
+    return success, predictions_attacked,images,iter,-loss_eva
 
 
 
