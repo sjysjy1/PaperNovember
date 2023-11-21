@@ -4,7 +4,7 @@ import numpy as np
 import torchvision
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
-from SmallCNN import SmallCNN
+from model_MNIST import model_MNIST
 from zoutendijk_attack import zoutendijk_attack_Linfty_mode1,zoutendijk_attack_Linfty_mode2,zoutendijk_attack_L2
 import time
 import matplotlib.pyplot as plt
@@ -19,10 +19,10 @@ print(device)
 
 test_dataset=datasets.MNIST(root='../data',
                           train=False,
-                          download=False,
+                          download=True,
                           transform=transforms.ToTensor())
 
-model=SmallCNN()
+model=model_MNIST()
 model.to(device)
 criterion=nn.CrossEntropyLoss()
 
@@ -53,13 +53,13 @@ for item in list_para:
     list_loss=[]
     start_time = time.time()
     print(item)
-    for i in range(10,100):
+    for i in range(1):
         print('***************{}th data***********'.format(i))
-        if item['model']='Standard':
+        if item['model']=='Standard':
             model.load_state_dict(torch.load('mnist_regular.pth'), False)
-        elif item['model']='ddn':
+        elif item['model']=='ddn':
             model.load_state_dict(torch.load('mnist_robust_ddn.pth'), False)  # ALM paper github : l2 adversarially trained
-        elif  item['model']='trades':
+        elif  item['model']=='trades':
             model.load_state_dict(torch.load('mnist_robust_trades.pt'), False)  # ALM paper github: l_\infty adversarially trained
         model.eval()  # turn off the dropout
         test_data = torch.unsqueeze(test_dataset.data, dim=1)
@@ -104,4 +104,4 @@ for item in list_para:
     attack_success_rate=len(list_success)/correct_sum
     print('attack success rate:',attack_success_rate)
     dict_save={'para':item,'time_used':time_used,'list1_success':list_success,'attack_success_rate':attack_success_rate,'list_diff':list_diff,'list_num':list_num,'list_loss':list_loss}
-    torch.save(dict_save,'./my_result/mnist/{}_attack_{}_epsilon{}_delta{}.pt'.format(item['model'],item['attack'],item['epsilon'],item['delta']))
+    torch.save(dict_save,'./result/mnist/{}_attack_{}_epsilon{}_delta{}.pt'.format(item['model'],item['attack'],item['epsilon'],item['delta']))
